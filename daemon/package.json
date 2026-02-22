@@ -1,0 +1,39 @@
+{
+  "name": "gemini-daemon",
+  "version": "0.1.0",
+  "description": "Persistent HTTP proxy for Gemini API with OpenAI-compatible interface",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "gemini-daemon": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "commander": "^14.0.3",
+    "google-auth-library": "^10.5.0",
+    "hono": "^4.11.8",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.1",
+    "@types/uuid": "^11.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "protobufjs"
+    ]
+  }
+}

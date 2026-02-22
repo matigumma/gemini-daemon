@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-dmg:
+    name: Build DMG
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: daemon/pnpm-lock.yaml
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build DMG
+        env:
+          GEMINI_CLI_CLIENT_ID: ${{ secrets.GEMINI_CLI_CLIENT_ID }}
+          GEMINI_CLI_CLIENT_SECRET: ${{ secrets.GEMINI_CLI_CLIENT_SECRET }}
+        run: bash build-dmg.sh
+
+      - name: Upload DMG to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: daemon/dist/*.dmg

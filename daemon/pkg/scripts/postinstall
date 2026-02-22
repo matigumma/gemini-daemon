@@ -1,0 +1,63 @@
+#!/bin/bash
+# Post-install: set up LaunchAgent, clear quarantine, start daemon + menubar app
+
+INSTALL_USER="${USER:-$(whoami)}"
+USER_HOME=$(dscl . -read "/Users/$INSTALL_USER" NFSHomeDirectory | awk '{print $2}')
+PLIST_PATH="$USER_HOME/Library/LaunchAgents/com.gemini-daemon.plist"
+LOG_DIR="$USER_HOME/Library/Logs"
+
+echo "[postinstall] Configuring gemini-daemon for user: $INSTALL_USER"
+
+# 1. Clear quarantine attribute on unsigned binaries (only quarantine, not all xattrs)
+xattr -dr com.apple.quarantine /usr/local/bin/gemini-daemon 2>/dev/null || true
+xattr -dr com.apple.quarantine "/Applications/Gemini Daemon.app" 2>/dev/null || true
+xattr -dr com.apple.quarantine /usr/local/bin/gemini-daemon-uninstall 2>/dev/null || true
+
+# 2. Create LaunchAgent plist
+mkdir -p "$USER_HOME/Library/LaunchAgents"
+chown "$INSTALL_USER:staff" "$USER_HOME/Library/LaunchAgents"
+mkdir -p "$LOG_DIR"
+chown "$INSTALL_USER:staff" "$LOG_DIR"
+
+cat > "$PLIST_PATH" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gemini-daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/gemini-daemon</string>
+        <string>--verbose</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${LOG_DIR}/gemini-daemon.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>${LOG_DIR}/gemini-daemon.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+chown "$INSTALL_USER:staff" "$PLIST_PATH"
+echo "[postinstall] Created LaunchAgent at $PLIST_PATH"
+
+# 3. Load the LaunchAgent (as the real user, not root)
+sudo -u "$INSTALL_USER" launchctl load "$PLIST_PATH" 2>/dev/null || true
+echo "[postinstall] Daemon started"
+
+# 4. Open the menubar app
+sudo -u "$INSTALL_USER" open "/Applications/Gemini Daemon.app" 2>/dev/null || true
+echo "[postinstall] Menubar app launched"
+
+echo "[postinstall] Done. Run 'gemini auth login' to authenticate with Google."
+exit 0

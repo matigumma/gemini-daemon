@@ -1,0 +1,5 @@
+{
+  "_comment": "Gemini CLI's public OAuth client credentials. Find them in the gemini-cli source: https://github.com/google-gemini/gemini-cli",
+  "clientId": "",
+  "clientSecret": ""
+}

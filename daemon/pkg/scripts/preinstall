@@ -1,0 +1,16 @@
+#!/bin/bash
+# Pre-install: stop existing daemon if running
+
+INSTALL_USER="${USER:-$(whoami)}"
+USER_HOME=$(dscl . -read "/Users/$INSTALL_USER" NFSHomeDirectory | awk '{print $2}')
+PLIST="$USER_HOME/Library/LaunchAgents/com.gemini-daemon.plist"
+
+if sudo -u "$INSTALL_USER" launchctl list | grep -q "com.gemini-daemon" 2>/dev/null; then
+    echo "[preinstall] Stopping existing gemini-daemon..."
+    sudo -u "$INSTALL_USER" launchctl unload "$PLIST" 2>/dev/null || true
+fi
+
+# Also stop menubar app if running
+killall "GeminiDaemonMenuBar" 2>/dev/null || true
+
+exit 0

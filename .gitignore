@@ -1,0 +1,16 @@
+node_modules/
+daemon/dist/
+menubar/.build/
+menubar/build/
+*.o
+*.d
+*.swiftdeps
+*.swiftdeps~
+.DS_Store
+*.dmg
+.idea/
+.vscode/
+*.swp
+*~
+.claude/
+daemon/oauth-client.json
