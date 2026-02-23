@@ -1,14 +1,14 @@
 # Gemini Daemon
 
+[![CI](https://github.com/matigumma/gemini-daemon/actions/workflows/ci.yml/badge.svg)](https://github.com/matigumma/gemini-daemon/actions/workflows/ci.yml)
+
 Local HTTP proxy that exposes Google's Gemini API through an **OpenAI-compatible** interface. Use Gemini models with any tool that speaks the OpenAI chat completions protocol — Claude Code, Cursor, Continue, aider, and more.
 
-Runs on `localhost:7965` as a macOS LaunchAgent with a menubar app for status monitoring.
-
-<!-- ![Screenshot](screenshot.png) -->
+Runs on `localhost:7965` as a macOS LaunchAgent with a native menubar app for status monitoring, quota tracking, and quick-prompt chat.
 
 ## Quick Install
 
-1. Download `GeminiDaemon-x.x.x-arm64.dmg` from [Releases](../../releases)
+1. Download [`GeminiDaemon-0.1.0-arm64.dmg`](https://github.com/matigumma/gemini-daemon/releases/latest/download/GeminiDaemon-0.1.0-arm64.dmg) from [Releases](https://github.com/matigumma/gemini-daemon/releases)
 2. Open the DMG and double-click **Install Gemini Daemon.pkg**
 3. Follow the installer prompts (the package is unsigned — right-click and select Open if blocked)
 4. The daemon starts automatically and the menubar frog icon appears
@@ -22,6 +22,17 @@ npx @google/gemini-cli
 ```
 
 Select **Login with Google** when prompted. This stores OAuth credentials at `~/.gemini/oauth_creds.json` — the daemon picks them up automatically.
+
+## Supported Models
+
+| Model | Aliases |
+|-------|---------|
+| `gemini-2.5-pro` | `pro` |
+| `gemini-2.5-flash` (default) | `flash` |
+| `gemini-2.0-flash` | |
+| `gemini-2.0-flash-lite` | |
+
+Any model name not listed is passed through as-is, so new models work without updating the daemon.
 
 ## Usage
 
@@ -72,6 +83,12 @@ export OPENAI_API_BASE=http://localhost:7965/v1
 export OPENAI_API_KEY=unused  # required by some clients, value doesn't matter
 ```
 
+**Claude Code:**
+
+```bash
+claude --provider openai --endpoint http://localhost:7965/v1 --model gemini-2.5-flash
+```
+
 ### Logs
 
 ```bash
@@ -95,8 +112,8 @@ Or use the menubar app's Start/Stop/Restart controls.
 
 | Directory | Description |
 |-----------|-------------|
-| `daemon/` | Node.js/TypeScript HTTP proxy server. Translates OpenAI chat completions requests to Gemini API calls and streams responses back. |
-| `menubar/` | Native Swift macOS menubar app. Monitors daemon health, displays quota/stats, and provides quick-prompt chat. |
+| `daemon/` | TypeScript HTTP server (Hono). Translates OpenAI chat completions to Gemini API calls with SSE streaming, retry logic, and quota tracking. |
+| `menubar/` | Native Swift menubar app. Monitors daemon health, displays per-model quota/stats, and provides a quick-prompt chat window. |
 
 ## Build from Source
 
@@ -117,7 +134,8 @@ make install
 make dmg
 
 # Run tests
-cd daemon && pnpm test
+cd daemon && pnpm test          # unit + integration (77 tests)
+cd daemon && pnpm test:smoke    # end-to-end smoke test against running daemon
 ```
 
 ## Uninstall
