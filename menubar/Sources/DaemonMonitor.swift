@@ -8,15 +8,15 @@ struct QuotaInfo {
 }
 
 enum DaemonStatus: Equatable {
-    case running(uptime: Int, authMethod: String, version: String)
+    case running(uptime: Int, authMethod: String, version: String, authenticated: Bool)
     case stopped
     case error(String)
     case unknown
 
     static func == (lhs: DaemonStatus, rhs: DaemonStatus) -> Bool {
         switch (lhs, rhs) {
-        case let (.running(u1, a1, v1), .running(u2, a2, v2)):
-            return u1 == u2 && a1 == a2 && v1 == v2
+        case let (.running(u1, a1, v1, auth1), .running(u2, a2, v2, auth2)):
+            return u1 == u2 && a1 == a2 && v1 == v2 && auth1 == auth2
         case (.stopped, .stopped): return true
         case let (.error(e1), .error(e2)): return e1 == e2
         case (.unknown, .unknown): return true
@@ -79,7 +79,8 @@ final class DaemonMonitor {
                     let uptime = json["uptime"] as? Int ?? 0
                     let authMethod = json["auth_method"] as? String ?? "unknown"
                     let version = json["version"] as? String ?? "?"
-                    status = .running(uptime: uptime, authMethod: authMethod, version: version)
+                    let authenticated = json["authenticated"] as? Bool ?? false
+                    status = .running(uptime: uptime, authMethod: authMethod, version: version, authenticated: authenticated)
                 } else {
                     status = .error("Health status: \(healthStatus)")
                 }
@@ -112,11 +113,37 @@ final class DaemonMonitor {
 
     func installService() {
         let scriptPath = NSHomeDirectory() + "/gemini-daemon/daemon/install-service.sh"
+
+        guard FileManager.default.fileExists(atPath: scriptPath) else {
+            DebugLog.write("[DaemonMonitor] install script not found at \(scriptPath)")
+            return
+        }
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = [scriptPath]
         process.currentDirectoryURL = URL(fileURLWithPath: NSHomeDirectory() + "/gemini-daemon/daemon")
-        try? process.run()
+
+        do {
+            try process.run()
+        } catch {
+            DebugLog.write("[DaemonMonitor] failed to run install script: \(error.localizedDescription)")
+        }
+    }
+
+    func startAuthFlow(completion: @escaping (URL?) -> Void) {
+        let authStartURL = URL(string: "http://127.0.0.1:7965/auth/start")!
+        let task = session.dataTask(with: authStartURL) { data, _, error in
+            guard let data, error == nil,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let authUrlString = json["auth_url"] as? String,
+                  let authUrl = URL(string: authUrlString) else {
+                completion(nil)
+                return
+            }
+            completion(authUrl)
+        }
+        task.resume()
     }
 
     func fetchQuota(completion: @escaping ([QuotaInfo]) -> Void) {
@@ -159,6 +186,10 @@ final class DaemonMonitor {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         process.arguments = arguments
-        try? process.run()
+        do {
+            try process.run()
+        } catch {
+            DebugLog.write("[DaemonMonitor] launchctl \(arguments.joined(separator: " ")) failed: \(error.localizedDescription)")
+        }
     }
 }

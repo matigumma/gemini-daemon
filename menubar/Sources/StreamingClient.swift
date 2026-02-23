@@ -54,10 +54,7 @@ final class StreamingClient: NSObject, URLSessionDataDelegate {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        log("[send] prompt=\(prompt.prefix(80)) url=\(endpoint) historyCount=\(messages.count)")
-        if let httpBody = request.httpBody, let bodyStr = String(data: httpBody, encoding: .utf8) {
-            log("[send] body=\(bodyStr)")
-        }
+        log("[send] url=\(endpoint) historyCount=\(messages.count)")
 
         task = session.dataTask(with: request)
         task?.resume()
@@ -90,8 +87,7 @@ final class StreamingClient: NSObject, URLSessionDataDelegate {
     }
 
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        let chunk = String(data: data, encoding: .utf8) ?? "<\(data.count) bytes>"
-        log("[data] received \(data.count) bytes: \(chunk.prefix(200))")
+        log("[data] received \(data.count) bytes")
         buffer.append(data)
         processBuffer()
     }
@@ -138,32 +134,32 @@ final class StreamingClient: NSObject, URLSessionDataDelegate {
             }
 
             guard let jsonData = payload.data(using: .utf8) else {
-                log("[parse] payload not valid UTF-8: \(payload.prefix(100))")
+                log("[parse] payload not valid UTF-8")
                 continue
             }
 
             guard let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-                log("[parse] invalid JSON: \(payload.prefix(200))")
+                log("[parse] invalid JSON chunk")
                 continue
             }
 
             guard let choices = json["choices"] as? [[String: Any]] else {
-                log("[parse] no choices in: \(payload.prefix(200))")
+                log("[parse] no choices in chunk")
                 continue
             }
 
             guard let delta = choices.first?["delta"] as? [String: Any] else {
-                log("[parse] no delta in choices[0]: \(choices.first ?? [:])")
+                log("[parse] no delta in choices")
                 continue
             }
 
             guard let content = delta["content"] as? String else {
-                log("[parse] no content in delta: \(delta)")
+                log("[parse] no content in delta")
                 continue
             }
 
             currentAssistantResponse += content
-            log("[parse] token: \(content.prefix(50))")
+            log("[parse] token received")
             DispatchQueue.main.async { self.onToken?(content) }
         }
 

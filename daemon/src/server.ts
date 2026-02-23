@@ -19,7 +19,16 @@ export function createServer(options: ServerOptions): Hono {
   const { client, auth, defaultModel, verbose } = options;
   const app = new Hono();
 
-  app.use("*", cors());
+  app.use("*", cors({
+    origin: (origin) => {
+      if (!origin) return origin; // allow non-browser requests
+      try {
+        const url = new URL(origin);
+        if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return origin;
+      } catch {}
+      return null; // block external origins
+    },
+  }));
 
   app.route("/", healthRoute(auth.method));
   app.route("/", modelsRoute());

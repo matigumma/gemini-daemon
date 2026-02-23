@@ -14,3 +14,9 @@ menubar/build/
 *~
 .claude/
 daemon/oauth-client.json
+.env*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json

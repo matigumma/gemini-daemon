@@ -144,7 +144,7 @@ describe("getClient", () => {
 
     await expect(
       client.generateContent("test-model", {}),
-    ).rejects.toThrow("Gemini API error 429");
+    ).rejects.toThrow("Rate limit exceeded");
     expect(mockFetch).toHaveBeenCalledTimes(4);
   });
 });

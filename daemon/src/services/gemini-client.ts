@@ -130,6 +130,17 @@ async function fetchWithRetry(
   throw new Error("Retry loop exhausted");
 }
 
+function sanitizeApiError(status: number): string {
+  switch (status) {
+    case 400: return "Bad request to upstream API";
+    case 401:
+    case 403: return "Authentication failed with upstream API";
+    case 404: return "Model not found";
+    case 429: return "Rate limit exceeded";
+    default: return `Upstream API error (${status})`;
+  }
+}
+
 export function getClient(auth: AuthResult, verbose?: boolean): GeminiClient {
   const { oauth2Client, projectId } = auth;
 
@@ -147,7 +158,8 @@ export function getClient(auth: AuthResult, verbose?: boolean): GeminiClient {
 
       if (!res.ok) {
         const text = await res.text();
-        const error: any = new Error(`Gemini API error ${res.status}: ${text}`);
+        if (verbose) console.error(`[gemini] API error ${res.status}: ${text}`);
+        const error: any = new Error(sanitizeApiError(res.status));
         error.status = res.status;
         throw error;
       }
@@ -169,7 +181,8 @@ export function getClient(auth: AuthResult, verbose?: boolean): GeminiClient {
 
       if (!res.ok) {
         const text = await res.text();
-        const error: any = new Error(`Gemini API error ${res.status}: ${text}`);
+        if (verbose) console.error(`[gemini] API error ${res.status}: ${text}`);
+        const error: any = new Error(sanitizeApiError(res.status));
         error.status = res.status;
         throw error;
       }
