@@ -95,6 +95,12 @@ export OPENAI_API_KEY=unused  # required by some clients, value doesn't matter
 claude --provider openai --endpoint http://localhost:7965/v1 --model gemini-2.5-flash
 ```
 
+**[OpenClaw](https://github.com/nichochar/open-claw):**
+
+The menubar app includes a one-click "Register on OpenClaw..." option that automatically configures gemini-daemon as a model provider in `~/.openclaw/openclaw.json`. Just click it from the menubar menu — no manual config needed.
+
+La app de la barra de menu incluye la opcion "Register on OpenClaw..." que configura automaticamente gemini-daemon como proveedor de modelos en `~/.openclaw/openclaw.json`. Solo hace falta un click desde el menu — no requiere configuracion manual.
+
 ### Logs
 
 ```bash
