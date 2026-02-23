@@ -1,32 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { resolveModel, getClient } from "./gemini-client.js";
-import type { AuthContainer } from "./auth.js";
+import type { AuthResult } from "./auth.js";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
-function makeAuthContainer(
-  authenticated: boolean,
-): AuthContainer {
-  if (!authenticated) {
-    return {
-      current: {
-        status: "unauthenticated",
-        oauth2Client: null,
-        projectId: null,
-        method: "none",
-      },
-    };
-  }
+function makeAuth(): AuthResult {
   return {
-    current: {
-      status: "authenticated",
-      oauth2Client: {
-        getAccessToken: vi.fn().mockResolvedValue({ token: "test-token" }),
-      } as any,
-      projectId: "test-project",
-      method: "gemini-cli-oauth",
-    },
+    oauth2Client: {
+      getAccessToken: vi.fn().mockResolvedValue({ token: "test-token" }),
+    } as any,
+    projectId: "test-project",
+    method: "gemini-cli-oauth",
   };
 }
 
@@ -67,17 +52,8 @@ describe("getClient", () => {
     vi.clearAllMocks();
   });
 
-  it("throws when authContainer is unauthenticated", async () => {
-    const container = makeAuthContainer(false);
-    const client = getClient(container);
-
-    await expect(
-      client.generateContent("test-model", {}),
-    ).rejects.toThrow("Not authenticated");
-  });
-
   it("makes correct API call shape (wrapped request)", async () => {
-    const container = makeAuthContainer(true);
+    const auth = makeAuth();
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
@@ -94,7 +70,7 @@ describe("getClient", () => {
         }),
     });
 
-    const client = getClient(container);
+    const client = getClient(auth);
     const result = await client.generateContent("gemini-2.5-flash", {
       contents: [{ role: "user", parts: [{ text: "Hi" }] }],
     });
@@ -113,7 +89,7 @@ describe("getClient", () => {
   });
 
   it("retries on 429 and succeeds", async () => {
-    const container = makeAuthContainer(true);
+    const auth = makeAuth();
 
     mockFetch
       .mockResolvedValueOnce({
@@ -141,7 +117,7 @@ describe("getClient", () => {
           }),
       });
 
-    const client = getClient(container);
+    const client = getClient(auth);
     const result = await client.generateContent("test-model", {});
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
@@ -149,10 +125,8 @@ describe("getClient", () => {
   });
 
   it("stops after MAX_RETRIES on persistent 429", async () => {
-    const container = makeAuthContainer(true);
+    const auth = makeAuth();
 
-    // Return 429 for all attempts (initial + 3 retries = 4 calls)
-    // Use tiny delay so test completes quickly
     mockFetch.mockImplementation(() =>
       Promise.resolve({
         ok: false,
@@ -166,12 +140,11 @@ describe("getClient", () => {
       }),
     );
 
-    const client = getClient(container);
+    const client = getClient(auth);
 
-    // Should throw because last 429 is returned with !res.ok
     await expect(
       client.generateContent("test-model", {}),
     ).rejects.toThrow("Gemini API error 429");
-    expect(mockFetch).toHaveBeenCalledTimes(4); // initial + 3 retries
+    expect(mockFetch).toHaveBeenCalledTimes(4);
   });
 });

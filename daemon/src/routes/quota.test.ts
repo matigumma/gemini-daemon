@@ -6,28 +6,15 @@ vi.mock("../services/auth.js", () => ({
 
 import { quotaRoute } from "./quota.js";
 import { fetchQuota } from "../services/auth.js";
-import type { AuthContainer } from "../services/auth.js";
+import type { AuthResult } from "../services/auth.js";
 
-function makeAuthContainer(authenticated = false): AuthContainer {
-  if (authenticated) {
-    return {
-      current: {
-        status: "authenticated",
-        oauth2Client: {
-          getAccessToken: vi.fn().mockResolvedValue({ token: "test" }),
-        } as any,
-        projectId: "test-project",
-        method: "gemini-cli-oauth",
-      },
-    };
-  }
+function makeAuth(): AuthResult {
   return {
-    current: {
-      status: "unauthenticated",
-      oauth2Client: null,
-      projectId: null,
-      method: "none",
-    },
+    oauth2Client: {
+      getAccessToken: vi.fn().mockResolvedValue({ token: "test" }),
+    } as any,
+    projectId: "test-project",
+    method: "gemini-cli-oauth",
   };
 }
 
@@ -36,16 +23,7 @@ describe("quotaRoute", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 when unauthenticated", async () => {
-    const app = quotaRoute(makeAuthContainer(false));
-    const res = await app.request("/quota");
-
-    expect(res.status).toBe(401);
-    const body = await res.json();
-    expect(body.error.type).toBe("authentication_error");
-  });
-
-  it("returns quota data when authenticated", async () => {
+  it("returns quota data", async () => {
     const mockQuotas = [
       {
         modelId: "gemini-2.5-flash",
@@ -56,7 +34,7 @@ describe("quotaRoute", () => {
     ];
     vi.mocked(fetchQuota).mockResolvedValue(mockQuotas);
 
-    const app = quotaRoute(makeAuthContainer(true));
+    const app = quotaRoute(makeAuth());
     const res = await app.request("/quota");
 
     expect(res.status).toBe(200);
@@ -76,7 +54,7 @@ describe("quotaRoute", () => {
     ];
     vi.mocked(fetchQuota).mockResolvedValue(mockQuotas);
 
-    const app = quotaRoute(makeAuthContainer(true));
+    const app = quotaRoute(makeAuth());
 
     // First request
     await app.request("/quota");
@@ -86,14 +64,13 @@ describe("quotaRoute", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.quotas).toEqual(mockQuotas);
-    // fetchQuota should only be called once due to caching
     expect(fetchQuota).toHaveBeenCalledTimes(1);
   });
 
   it("returns error on fetchQuota failure", async () => {
     vi.mocked(fetchQuota).mockRejectedValue(new Error("API failed"));
 
-    const app = quotaRoute(makeAuthContainer(true));
+    const app = quotaRoute(makeAuth());
     const res = await app.request("/quota");
 
     expect(res.status).toBe(500);

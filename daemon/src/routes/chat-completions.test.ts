@@ -1,38 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
-vi.mock("../services/gemini-client.js", () => ({
-  getClient: vi.fn(),
-  resolveModel: vi.fn((model?: string) => model || "gemini-2.5-flash"),
-}));
+import { chatCompletionsRoute } from "./chat-completions.js";
+import type { GeminiClient } from "../services/gemini-client.js";
 
 // Mock stats to avoid module state issues
 vi.mock("../stats.js", () => ({
   recordRequest: vi.fn(),
 }));
 
-import { chatCompletionsRoute } from "./chat-completions.js";
-import { getClient } from "../services/gemini-client.js";
-import type { AuthContainer } from "../services/auth.js";
-
-function makeAuthContainer(authenticated = false): AuthContainer {
-  if (authenticated) {
-    return {
-      current: {
-        status: "authenticated",
-        oauth2Client: {} as any,
-        projectId: "test-project",
-        method: "gemini-cli-oauth",
-      },
-    };
-  }
+function makeMockClient(overrides?: Partial<GeminiClient>): GeminiClient {
   return {
-    current: {
-      status: "unauthenticated",
-      oauth2Client: null,
-      projectId: null,
-      method: "none",
-    },
-  };
+    generateContent: vi.fn().mockResolvedValue({
+      candidates: [
+        {
+          content: { parts: [{ text: "Hello!" }], role: "model" },
+          finishReason: "STOP",
+        },
+      ],
+      usageMetadata: {
+        promptTokenCount: 10,
+        candidatesTokenCount: 5,
+        totalTokenCount: 15,
+      },
+    }),
+    generateContentStream: vi.fn(),
+    ...overrides,
+  } as GeminiClient;
 }
 
 function postJSON(app: any, body: any) {
@@ -48,19 +40,8 @@ describe("chatCompletionsRoute", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 when unauthenticated", async () => {
-    const app = chatCompletionsRoute(makeAuthContainer(false));
-    const res = await postJSON(app, {
-      messages: [{ role: "user", content: "Hi" }],
-    });
-
-    expect(res.status).toBe(401);
-    const body = await res.json();
-    expect(body.error.type).toBe("authentication_error");
-  });
-
   it("returns 400 on invalid JSON", async () => {
-    const app = chatCompletionsRoute(makeAuthContainer(true));
+    const app = chatCompletionsRoute(makeMockClient());
     const res = await app.request("/v1/chat/completions", {
       method: "POST",
       body: "not json{{{",
@@ -73,7 +54,7 @@ describe("chatCompletionsRoute", () => {
   });
 
   it("returns 400 when messages missing", async () => {
-    const app = chatCompletionsRoute(makeAuthContainer(true));
+    const app = chatCompletionsRoute(makeMockClient());
     const res = await postJSON(app, { model: "gemini-2.5-flash" });
 
     expect(res.status).toBe(400);
@@ -82,26 +63,9 @@ describe("chatCompletionsRoute", () => {
     expect(body.error.message).toContain("messages");
   });
 
-  it("calls client and returns OpenAI response when authenticated", async () => {
-    const mockClient = {
-      generateContent: vi.fn().mockResolvedValue({
-        candidates: [
-          {
-            content: { parts: [{ text: "Hello!" }], role: "model" },
-            finishReason: "STOP",
-          },
-        ],
-        usageMetadata: {
-          promptTokenCount: 10,
-          candidatesTokenCount: 5,
-          totalTokenCount: 15,
-        },
-      }),
-      generateContentStream: vi.fn(),
-    };
-    vi.mocked(getClient).mockReturnValue(mockClient as any);
-
-    const app = chatCompletionsRoute(makeAuthContainer(true));
+  it("calls client and returns OpenAI response", async () => {
+    const client = makeMockClient();
+    const app = chatCompletionsRoute(client);
     const res = await postJSON(app, {
       model: "gemini-2.5-flash",
       messages: [{ role: "user", content: "Hi" }],
@@ -112,19 +76,17 @@ describe("chatCompletionsRoute", () => {
     expect(body.object).toBe("chat.completion");
     expect(body.choices[0].message.content).toBe("Hello!");
     expect(body.choices[0].finish_reason).toBe("stop");
-    expect(mockClient.generateContent).toHaveBeenCalledTimes(1);
+    expect(client.generateContent).toHaveBeenCalledTimes(1);
   });
 
   it("maps 429 upstream error to rate_limit_error", async () => {
     const error: any = new Error("Rate limited");
     error.status = 429;
-    const mockClient = {
+    const client = makeMockClient({
       generateContent: vi.fn().mockRejectedValue(error),
-      generateContentStream: vi.fn(),
-    };
-    vi.mocked(getClient).mockReturnValue(mockClient as any);
+    });
 
-    const app = chatCompletionsRoute(makeAuthContainer(true));
+    const app = chatCompletionsRoute(client);
     const res = await postJSON(app, {
       messages: [{ role: "user", content: "Hi" }],
     });
@@ -137,13 +99,11 @@ describe("chatCompletionsRoute", () => {
   it("maps 401 upstream error to authentication_error", async () => {
     const error: any = new Error("Unauthorized");
     error.status = 401;
-    const mockClient = {
+    const client = makeMockClient({
       generateContent: vi.fn().mockRejectedValue(error),
-      generateContentStream: vi.fn(),
-    };
-    vi.mocked(getClient).mockReturnValue(mockClient as any);
+    });
 
-    const app = chatCompletionsRoute(makeAuthContainer(true));
+    const app = chatCompletionsRoute(client);
     const res = await postJSON(app, {
       messages: [{ role: "user", content: "Hi" }],
     });
@@ -156,13 +116,11 @@ describe("chatCompletionsRoute", () => {
   it("maps 500 upstream error to server_error", async () => {
     const error: any = new Error("Internal error");
     error.status = 500;
-    const mockClient = {
+    const client = makeMockClient({
       generateContent: vi.fn().mockRejectedValue(error),
-      generateContentStream: vi.fn(),
-    };
-    vi.mocked(getClient).mockReturnValue(mockClient as any);
+    });
 
-    const app = chatCompletionsRoute(makeAuthContainer(true));
+    const app = chatCompletionsRoute(client);
     const res = await postJSON(app, {
       messages: [{ role: "user", content: "Hi" }],
     });
