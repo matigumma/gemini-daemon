@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var quotaCardItem: NSMenuItem!
     private var toggleMenuItem: NSMenuItem!
     private var restartMenuItem: NSMenuItem!
+    private var signInMenuItem: NSMenuItem!
     private var installMenuItem: NSMenuItem!
     private var registerOpenClawMenuItem: NSMenuItem!
     private lazy var promptPanel = PromptPanel()
@@ -71,6 +72,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             version: "v?", uptime: "—", authMethod: "—"
         ))
         menu.addItem(statusCardItem)
+
+        // Sign in with Google (shown when unauthenticated)
+        signInMenuItem = NSMenuItem(title: "Sign in with Google...", action: #selector(signInWithGoogle), keyEquivalent: "")
+        signInMenuItem.target = self
+        signInMenuItem.isHidden = true
+        menu.addItem(signInMenuItem)
 
         toggleMenuItem = NSMenuItem(title: "Start Daemon", action: #selector(toggleDaemon), keyEquivalent: "")
         toggleMenuItem.target = self
@@ -193,16 +200,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = statusItem.button else { return }
 
         switch status {
-        case let .running(uptime, authMethod, version):
-            button.attributedTitle = statusBarTitle(statusColor: .systemGreen)
+        case let .running(uptime, authMethod, version, authenticated):
+            button.attributedTitle = statusBarTitle(statusColor: authenticated ? .systemGreen : .systemOrange)
             statusIsRunning = true
             statusText = "Running"
             statusVersion = "v\(version)"
             statusUptime = formatUptime(uptime)
-            statusAuth = authMethod
+            statusAuth = authenticated ? authMethod : "Not signed in"
             toggleMenuItem.title = "Stop Daemon"
             toggleMenuItem.action = #selector(toggleDaemon)
             restartMenuItem.isHidden = false
+            signInMenuItem.isHidden = authenticated
 
         case .stopped:
             button.attributedTitle = statusBarTitle(statusColor: .systemRed)
@@ -214,6 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             toggleMenuItem.title = "Start Daemon"
             toggleMenuItem.action = monitor.plistExists ? #selector(toggleDaemon) : nil
             restartMenuItem.isHidden = true
+            signInMenuItem.isHidden = true
 
         case let .error(message):
             button.attributedTitle = statusBarTitle(statusColor: .systemYellow)
@@ -225,6 +234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             toggleMenuItem.title = "Stop Daemon"
             toggleMenuItem.action = #selector(toggleDaemon)
             restartMenuItem.isHidden = false
+            signInMenuItem.isHidden = true
 
         case .unknown:
             button.attributedTitle = statusBarTitle(statusColor: .systemGray)
@@ -236,6 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             toggleMenuItem.title = "Start Daemon"
             toggleMenuItem.action = nil
             restartMenuItem.isHidden = true
+            signInMenuItem.isHidden = true
         }
 
         updateStatusCard()
@@ -264,6 +275,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         monitor.restartDaemon()
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             self?.monitor.checkHealth()
+        }
+    }
+
+    @objc private func signInWithGoogle() {
+        monitor.startAuthFlow { url in
+            DispatchQueue.main.async {
+                if let url {
+                    NSWorkspace.shared.open(url)
+                }
+            }
         }
     }
 

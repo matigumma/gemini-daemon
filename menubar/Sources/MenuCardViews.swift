@@ -31,9 +31,14 @@ struct StatusCardView: View {
                     .font(.body)
                     .fontWeight(.semibold)
             }
-            Text("\(version) \u{00B7} Up \(uptime) \u{00B7} \(authMethod)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 0) {
+                Text("\(version) \u{00B7} Up \(uptime) \u{00B7} ")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text(authMethod)
+                    .font(.footnote)
+                    .foregroundStyle(authMethod == "Not signed in" ? .orange : .secondary)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
