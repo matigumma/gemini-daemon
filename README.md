@@ -6,6 +6,12 @@ Local HTTP proxy that exposes Google's Gemini API through an **OpenAI-compatible
 
 Runs on `localhost:7965` as a macOS LaunchAgent with a native menubar app for status monitoring, quota tracking, and quick-prompt chat.
 
+---
+
+Proxy HTTP local que expone la API de Google Gemini a traves de una interfaz **compatible con OpenAI**. Usa modelos Gemini con cualquier herramienta que hable el protocolo de chat completions de OpenAI — Claude Code, Cursor, Continue, aider, y mas.
+
+Corre en `localhost:7965` como un LaunchAgent de macOS con una app nativa en la barra de menu para monitorear el estado, seguimiento de cuota y chat rapido.
+
 ## Quick Install
 
 1. Download [`GeminiDaemon-0.1.0-arm64.dmg`](https://github.com/matigumma/gemini-daemon/releases/latest/download/GeminiDaemon-0.1.0-arm64.dmg) from [Releases](https://github.com/matigumma/gemini-daemon/releases)
@@ -153,6 +159,22 @@ make uninstall
 ```
 
 This removes the daemon binary, menubar app, and LaunchAgent. Auth credentials at `~/.gemini/` are left in place.
+
+## Contributing / Contribuir
+
+1. Fork the repo and create a branch from `main` / Hacete un fork y crea una rama desde `main`
+2. Keep changes focused — one feature or fix per PR / Mantene los cambios enfocados — una feature o fix por PR
+3. Run tests before submitting / Correr los tests antes de enviar:
+   ```bash
+   cd daemon && pnpm test
+   cd menubar && swift build
+   ```
+4. Write a clear PR description explaining *what* and *why* / Escribi una descripcion clara en el PR explicando *que* y *por que*
+5. Be respectful in reviews and discussions / Se respetuoso en las reviews y discusiones
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full setup and development details.
+
+Consulta [CONTRIBUTING.md](CONTRIBUTING.md) para detalles completos de setup y desarrollo.
 
 ## License
 
